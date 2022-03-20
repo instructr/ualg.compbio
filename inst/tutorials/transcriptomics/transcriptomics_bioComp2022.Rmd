@@ -20,6 +20,7 @@ library(umap)
 
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
 ```
 
 ## Introduction to transcriptomics
