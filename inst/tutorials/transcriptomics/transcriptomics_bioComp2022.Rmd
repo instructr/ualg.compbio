@@ -70,7 +70,7 @@ Since we will be doing a meta-analysis of previously published transcriptomics d
 # IMPORTANT: Make sure you create a directory inside your working directory
 # named "data" to save the files download from GEO.
 
-gset <- getGEO("GSE40266", destdir="/Users/isabelduarte/Desktop/OneDrive - Universidade do Algarve/UAlg/3.classes/bioComputacional_2022/protocols2022/transcriptomics_bioComp2022/data", 
+gset <- getGEO("GSE40266", destdir="data", 
                GSEMatrix =TRUE, AnnotGPL=TRUE, 
                getGPL = TRUE)
 
