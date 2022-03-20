@@ -21,6 +21,7 @@ library(umap)
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
+set.seed(2022)
 ```
 
 ## Introduction to transcriptomics
@@ -401,27 +402,30 @@ axis(1, at = 1:9,
 
 Some self evaluation questions to check if you understood the basics about a transcriptomics analysis.
 
-```{r quiz}
+```{r quiz, }
 quiz(
   question("What is the purpose of a transcriptomics analysis?",
     answer("Obtain the sequence of all genes simultaneously."),
     answer("Visualize and interpret gene evolution."),
     answer("Measure the expression of all genes simultaneously.", correct = TRUE),
-    answer("Discover new functional interactions between genes.")
+    answer("Discover new functional interactions between genes."),
+    allow_retry = TRUE
   ),
   
   question("Which of the following are transcriptomics techniques?",
     answer("Microarrays", correct = TRUE),
     answer("RT-qPCR"),
     answer("DNA-seq"),
-    answer("RNA-seq", correct = TRUE)
+    answer("RNA-seq", correct = TRUE),
+    allow_retry = TRUE
   ),
   
   question("Which of the following are NOT advantages of using Next Generation Sequencing techniques?",
     answer("Measure a limited number of transcripts.", correct = TRUE),
     answer("Possibility to discover new transcripts."),
     answer("Fast analysis.", correct = TRUE),
-    answer("High-throuput measurement of unknown transcripts.")
+    answer("High-throuput measurement of unknown transcripts."),
+    allow_retry = TRUE
   )
 )
 ```
