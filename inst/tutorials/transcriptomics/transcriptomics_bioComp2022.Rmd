@@ -423,7 +423,7 @@ quiz(
   question("Which of the following are NOT advantages of using Next Generation Sequencing techniques?",
     answer("Measure a limited number of transcripts.", correct = TRUE),
     answer("Possibility to discover new transcripts."),
-    answer("Fast analysis.", correct = TRUE),
+    answer("Fast data analysis.", correct = TRUE),
     answer("High-throuput measurement of unknown transcripts."),
     allow_retry = TRUE
   )
