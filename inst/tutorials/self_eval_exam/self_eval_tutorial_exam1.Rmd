@@ -1,0 +1,189 @@
+---
+title: "Self Evaluation Exam 1 | Biologia Computacional 2022"
+author: "Isabel Duarte"
+date: "March 2022"
+output:
+  learnr::tutorial:
+    progressive: false
+    allow_skip: true
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(dplyr)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Self Evaluation Exam
+
+You have 60 minutes to complete the exercises. 
+Good work.
+
+
+### Load the dplyr package
+
+The `dplyr` package will provide many useful data-manipulation functions, including a dataset (data frame) named `starwars` that we will use for this exercise.
+
+```{r load_dplyr, exercise=TRUE}
+
+# Load the required package:
+library(dplyr)
+
+# Print message
+print ("Done")
+
+```
+
+### Create starwars dataframe
+
+Save the `starwars` dataset to your own local variable; and remove all missing data, i.e. remove all NAs (Not Available - that means that there is no data available for that field).
+
+```{r create_df, exercise=TRUE}
+
+my_starwars <- na.omit(as.data.frame(starwars))
+
+# Print message
+print ("Done starwars")
+
+```
+
+## A. Getting to know the data
+
+**Q1.** Inspect the `my_starwars` data frame.
+
+```{r q1, exercise=TRUE, exercise.setup = "create_df", exercise.lines = 5}
+
+
+```
+
+```{r q1-hint}
+
+# To look at the data, you can print it just by just typing its name.
+
+```
+
+
+**Q1.1.** To find documentation regarding the meaning of each variable, **read the help page** for the `starwars` (not the `my_starwars`) dataset.
+
+```{r q1_1, exercise=TRUE, exercise.setup = "q1", exercise.lines = 5}
+
+
+
+```
+
+**Q2.** How many rows and how many columns are there in the `my_starwars` dataset?
+
+```{r q2, exercise=TRUE, exercise.setup = "q1_1", exercise.lines = 5}
+
+
+
+```
+
+```{r q2-hint}
+
+# You can look at the dimensions of your dataset with the function `dim()`
+
+```
+
+**Q3.** What are the column names of the `my_starwars` data frame?
+
+```{r q3, exercise=TRUE, exercise.setup = "q2", exercise.lines = 5}
+
+
+
+```
+
+**Q4.** In general, rows in data frames refer to *observations*. Complete the following sentence (in english, no caps, without punctuation marks): 
+
+```{r text_box, echo = FALSE}
+question_text(
+  "In the my_starwars dataset, each row refers to one ...",
+  answer("Starwars character", message = "Don't forget to NOT capitalize."),
+  answer("character from starwars", correct = TRUE),
+  answer("personagem do starwars", message = "Correto, mas em Inglês."),
+  answer("starwars character", correct = TRUE),
+  allow_retry = TRUE
+)
+```
+
+
+## B. Subset your data and dive into it
+
+**Q5.** Create a new data frame named `starwars_small` containing all the rows and only the first 10 columns of **my_starwars**. We will now only work with the **starwars_small** data frame*.
+
+```{r q5, exercise=TRUE, exercise.setup = "q3", exercise.lines = 5}
+
+
+
+```
+
+**Q6.** What is the data type of the first, second, and third columns of the `starwars_small` data frame.
+
+```{r q6, exercise=TRUE, exercise.setup = "q5", exercise.lines = 5}
+
+
+
+```
+
+```{r q6-hint}
+
+# You can use `str()` function to learn about data types of all your columns.
+
+```
+
+**Q7.** What is the mean, standard deviation, and median of the variable *height* from the `starwars_small` dataset?
+
+```{r q7, exercise=TRUE, exercise.setup = "q6", exercise.lines = 10}
+
+
+
+```
+
+**Q7.1.** Can you look at the descriptive statistics of all variables in the `starwars_small` data frame?
+
+```{r q7_1, exercise=TRUE, exercise.setup = "q7", exercise.lines = 10}
+
+
+
+```
+
+**Q8.** How many different hair colors exist in the `starwars_small` dataset?
+
+```{r q8, exercise=TRUE, exercise.setup = "q7_1", exercise.lines = 10}
+
+
+
+```
+
+**Q9.** How many feminine characters have brown eye-color in the `starwars_small` data?   
+
+```{r q9, exercise=TRUE, exercise.setup = "q8", exercise.lines = 10}
+
+
+
+```
+
+```{r q9-hint}
+
+# Look at the `eye_color` and `gender` columns.
+
+```
+
+**Q10.** Which starwars characters are taller than Darth Vader (in the `starwars_small` data frame)?   
+
+```{r q10, exercise=TRUE, exercise.setup = "q9", exercise.lines = 5}
+
+
+
+```
+
+```{r q10-hint}
+
+# You can subset your dataset by asking for the rows for which the height is greater than Darth Vader's.
+
+```
+
+
