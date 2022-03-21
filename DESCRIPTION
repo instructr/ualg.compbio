@@ -20,7 +20,9 @@ biocViews:
 Imports: 
     dplyr,
     GEOquery,
-    learnr,
+    learnr (>= 0.10.1.9020),
     limma,
     sortable,
     umap
+Remotes:  
+    rstudio/learnr
