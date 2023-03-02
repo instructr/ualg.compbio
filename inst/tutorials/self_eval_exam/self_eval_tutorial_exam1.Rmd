@@ -1,7 +1,6 @@
 ---
-title: "Self Evaluation Exam 1 | Biologia Computacional 2022"
+title: "Self Evaluation Exam 1 | Biologia Computacional"
 author: "Isabel Duarte"
-date: "March 2022"
 output:
   learnr::tutorial:
     progressive: false

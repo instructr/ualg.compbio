@@ -1,0 +1,454 @@
+---
+title: "Transcriptomics tutorial | Biologia Computacional 2023"
+author: "Isabel Duarte"
+date: "March 2023"
+output:
+  learnr::tutorial:
+    progressive: true
+    allow_skip: false
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(sortable)
+library(dplyr)
+library(GEOquery)
+library(limma)
+library(umap)
+#library(ggplot2)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+set.seed(2022)
+```
+
+## Introduction to transcriptomics
+
+- Transcriptomics are a set of high-throughput techniques for functional genomics studies.
+- A transcriptomics experiment measures the expression level of thousands of genes simultaneously. 
+- Currently there are two main technologies for transcriptomics analyses: microarrays and next generation sequencing (NGS). 
+- Microarrays are a collection of DNA probes that are usually bound in defined positions to a solid surface, such as a glass slide, to which sample DNA fragments can be hybridised. The probes are generally oligonucleotides that are ‘ink-jet printed’ onto slides (Agilent) or synthesised in situ (Affymetrix). Labelled single-stranded DNA or antisense RNA fragments from a sample of interest are hybridised to the DNA microarray under high stringency conditions. The amount of hybridisation detected for a specific probe is proportional to the number of nucleic acid fragments in the sample.
+  - Microarrays are faster to analyse, but measure a limited number of known transcripts.
+- RNA sequencing (RNA-seq) is the application of next generation sequencing technologies to cDNA molecules. This is obtained by reverse transcription from RNA, in order to get information about the RNA content of a sample.
+Thus, RNA-seq is the set of experimental procedures that generates cDNA molecules derived from RNA molecules, followed by sequencing-library construction and massively parallel deep sequencing.
+  - RNA-seq can analyse the expression of all genes simultaneously, and allows the discovery of new genes and transcripts. However the analysis takes longer and requires specialized programming and statistical skills.
+
+(Source: https://www.ebi.ac.uk/training/online/courses/functional-genomics-ii-common-technologies-and-data-analysis-methods/) 
+
+### Microarray analysis
+In this class we will proceed with an analysis of a microarray dataset downloaded from the public data repository GEO (Accession number: GSE40266). 
+
+#### Analysis steps
+A full microarray analysis, starting from raw files (for example .CEL files) output by the microarray scanner, entails the following steps:
+
+- Step 1. **Feature extraction** | Converting the scanned image of the microarray into quantifiable values, and annotating it with the gene IDs and other useful information.
+  - Only when using raw files (e.g. .CEL files from Affymetrix)
+- Step 2. **Quality control** | Visual inspection of the data to find biases and other obvious outliers or errors.
+  - Only when starting the analysis from raw files.
+- Step 3. **Normalization** | Normalisation of microarray data is used to control for technical variation between assays, while preserving the biological variation. The most popular method is RMA (Robust Multi-Array Average).
+  - Only when starting the analysis from raw files.
+- Step 4. **Differential expression analysis** | The goal of differential expression analysis is to identify genes whose expression differs under different conditions. One of the most widely used packages for this is limma.
+- Step 5. **Biological interpretation of the results** | Visualization of data with Heatmaps and Clustering, Functional enrichment, Gene set enrichment analysis (GSEA), Pathway/Network analysis.
+
+
+#### Tutorial information
+
+**Description:** This R tutorial is a guided transcriptomics analysis using GEO microarray data.
+
+**Source:** The R code is adapted and customized by Isabel Duarte, from the GEO2R script automatically generated at the GEO accession page in NCBI (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE40266).
+
+**Required packages:** Bioconductor, GEOquery, limma, umap.
+
+## 1. Download the microarray data
+
+The data used for this tutorial is from the GEO repository (public OMICS repository from the NCBI). 
+
+Since we will be doing a meta-analysis of previously published transcriptomics data, we will NOT start the analysis from the raw .CEL files (from Affymetrix microarray platforms). Instead we will be downloading and using the expression set object containing normalized expression values. Therefore, the first 3 steps of the analysis will not be necessary.
+
+```{r load_geo_data, exercise=TRUE}
+
+# IMPORTANT: Make sure you create a directory inside your working directory
+# named "data" to save the files download from GEO.
+
+gset <- getGEO("GSE40266", destdir="data", 
+               GSEMatrix =TRUE, AnnotGPL=TRUE, 
+               getGPL = TRUE)
+
+# Print gset object
+gset
+
+```
+
+### Inspect gset object
+
+```{r load_geo_data2, exercise=TRUE, exercise.setup = "load_geo_data"}
+
+class(gset)
+length(gset)
+
+# The list has only 1 ExpressionSet object, so extract it from its list format 
+gset <- gset[[1]]
+class(gset)
+
+# Print new gset object
+gset
+```
+
+### Discover the measured variable names for which there are annotation data (gene names and other biological information) in the gset object.
+
+```{r load_geo_data3, exercise=TRUE, exercise.setup = "load_geo_data2"}
+# Set up the data and group names for all samples
+gsms <- "000111222"
+sml <- unlist (strsplit(gsms, ""))
+sml <- paste("G", sml, sep="")    # set group names
+fl <- as.factor(sml)
+gset$description <- fl
+
+# Make proper column names to match the names that will be used by limma package (toptable function)
+fvarLabels(gset) <- make.names(fvarLabels(gset))
+
+# Print the variable labels
+fvarLabels(gset)
+```
+
+
+### Normalize the data between arrays
+
+Using the **quantile normalization** method, based on ranking the expression values from each array, and then setting the ranked values to the average (usually, arithmetic mean) of the distributions. 
+(More info in: https://en.wikipedia.org/wiki/Quantile_normalization)
+
+```{r load_geo_data4, exercise=TRUE, exercise.setup = "load_geo_data3"}
+# Probably the data has already been normalized, but it does not impact the results to normalize again.
+
+# Keep a copy of the raw values
+exprs_raw <- exprs(gset)
+
+# Using limma
+exprs_norm <- normalizeBetweenArrays(exprs_raw, method = "quantile")
+
+# Compare normalized data with raw data
+head(exprs_raw)
+head(exprs_norm)
+
+```
+
+### Log2 transform the expression values
+
+Now the data are normalized, but we do not know if they have been Log2 transformed.
+
+So, before log2 transformation, we will auto-detect if the values are already in log space by looking at the distribution of the expression values.
+
+```{r load_geo_data5, exercise=TRUE, exercise.setup = "load_geo_data4"}
+
+# 1. create a vector of quantiles 
+qx <- as.numeric(quantile(exprs_norm, 
+                          probs=c(0., 0.25, 0.5, 0.75, 0.99, 1.0),
+                          na.rm=TRUE))
+
+# 2. function to detect if data is log transformed
+LogC <- (qx[5] > 100) ||
+  (qx[6]-qx[1] > 50 && qx[2] > 0) ||
+  (qx[2] > 0 && qx[2] < 1 && qx[4] > 1 && qx[4] < 2)
+
+# 3. apply log2 function only if values are not yet in log2 scale  
+if (LogC) {
+  exprs_norm[which(exprs_norm<= 0)] <- NaN
+  exprs(gset) <- log2(exprs_norm)
+}
+
+# Save the log2 values in a new object
+exprs_log <- exprs(gset)
+
+# Compare the expression matrix BEFORE and AFTER the Log2 transformation
+
+# Before Log2
+head (exprs_norm)
+# After Log2
+head (exprs_log) 
+
+```
+
+### Table with gene expression results
+
+```{r load_geo_data6, exercise=TRUE, exercise.setup = "load_geo_data5"}
+
+# Get the gene names (annotation) and expression data for all genes
+annot_data <- fData(gset)
+expression_values <- exprs(gset)
+
+# Create single dataframe with final results
+exprs_results_final <- data.frame(probe_id = annot_data$ID,
+                                 gene_symbol = annot_data$Gene.symbol,
+                                 gene_description = annot_data$Gene.title,
+                                 exprs(gset)
+                                 )
+
+# Preview the final results
+head (exprs_results_final, n = 10)
+```
+
+## 2. Differential Expression
+
+The goal of differential expression analysis is to identify genes whose  expression differs under different conditions. 
+For example, we use statistical testing to decide whether an observed difference in expression of a given gene is significant (i.e. if the change is greater than what would be expected by random variation).
+(https://www.ebi.ac.uk/training/online/courses/functional-genomics-ii-common-technologies-and-data-analysis-methods/microarrays/)
+
+In this tutorial we will use the package *limma* to find differentially expressed genes.
+
+### Create a design matrix
+
+A design matrix, in this context, is used to represent the experimental design used for this scientific experiment, indicating which arrays belong to which experimental groups and are replicates of each other.
+
+```{r diff_expresssion2, exercise=TRUE, exercise.setup = "load_geo_data6"}
+# Create the design matrix
+design <- model.matrix(~ description + 0, gset)
+colnames(design) <- levels(fl)
+
+# Print design matrix
+design
+```
+
+### Fit the gene expression values with linear models, using the design matrix
+
+```{r diff_expresssion3, exercise=TRUE, exercise.setup = "diff_expresssion2"}
+# Fit one linear model for each probeset
+fit <- lmFit(gset, design)
+
+# Print the fitted data
+fit
+```
+
+### Create the contrast matrix
+
+A contrast matrix is an object that describes the pairwise comparisons that we want to make for differential expression analysis.   
+For example: TreatmentA - Control.
+
+```{r diff_expresssion4, exercise=TRUE, exercise.setup = "diff_expresssion3"}
+# Make a contrast matrix with all versus all comparisons
+cont.matrix <- makeContrasts(G2-G0, G1-G0, G2-G1, levels=design)
+
+# Fit the contrast matrix to the matrix that was previously fit
+fit2 <- contrasts.fit(fit, cont.matrix)  
+
+# Apply eBayes error correction
+fit2 <- eBayes(fit2, 0.01)
+
+# Print the fit2 data with Bayes error correction
+fit2
+```
+
+### Extract differentially expressed genes
+
+```{r diff_expresssion5, exercise=TRUE, exercise.setup = "diff_expresssion4"}
+# Get all the differentially expressed genes (even the ones bellow significance)
+tT <- topTable(fit2, adjust="BH", sort.by="B", number=nrow(fit2))
+
+# Get only the 500 most significant
+tT500 <- topTable(fit2, adjust="BH", sort.by="B", number=500)
+
+# Keep only the columns with data that we are interested in
+colnames(tT500)
+tT <- subset(tT, select=c("ID","Gene.symbol","Gene.title","G2...G0","G1...G0","G2...G1",
+                          "AveExpr","adj.P.Val","P.Value","F"))
+tT500 <- subset(tT500,
+                select=c("ID","Gene.symbol","Gene.title","G2...G0","G1...G0","G2...G1",
+                                "AveExpr","adj.P.Val","P.Value","F"))
+
+# Look at the data
+tail(tT)
+tail(tT500)
+```
+
+### Export the results to file
+
+```{r diff_expresssion6, exercise=TRUE, exercise.setup = "diff_expresssion5"}
+
+# Uncomment these lines to save results to a file
+
+# write.table(tT, file="all_degs.tsv", row.names=F, sep="\t")
+# write.table(tT500, file="top500_degs_.tsv", row.names=F, sep="\t")
+
+print ("Nothing to be done. Uncomment these lines in standalone script.")
+```
+
+
+## 3. Plot the expression data
+
+### Boxplot
+
+```{r plot_data, exercise=TRUE, exercise.setup = "diff_expresssion6"}
+# Order samples by group
+exprs_log <- exprs(gset)[ , order(sml)]
+sml <- sml[order(sml)]
+fl <- as.factor(sml)
+
+# Labels and colors
+labels <- c("control","tgfB1","tgfB2")
+my_colors <- c(rep('magenta', 3),
+               rep('royalblue', 3),
+               rep('green3', 3))
+
+# Draw the plot
+boxplot(exprs_log, boxwex=0.6, notch=TRUE,
+        main="GSE40266 samples", outline=FALSE, las=2,
+        col = my_colors)
+# Add a legend
+legend("topleft", labels, fill=c("magenta", "royalblue", "green3"),
+       bty="n", cex = 0.8)
+```
+
+### Principal component analysis and UMAP
+
+**Principal component analysis (PCA)** is the process of computing the principal components of a collection of points, commonly used for dimensionality reduction, i.e. reduce the dimensionality of large data sets, by transforming a large set of variables into a smaller one that still contains most of the information in the large set. It is a linear dimensionality reduction technique.
+(More info in https://en.wikipedia.org/wiki/Principal_component_analysis).
+
+Here, the PCA is used to check whether the overall variability of the samples reflects their experimental design, a Principal Component Analysis can be performed.
+This provides an easy visual way to check if replicates are homogenous and distinguishable from samples of other group(s).
+
+```{r plot_data2, exercise=TRUE, exercise.setup = "plot_data"}
+### PCA
+# Using the R base prcomp function to calculate the PCA
+pca_exprs <- prcomp(t(exprs_log), center = TRUE, scale. = TRUE)
+
+# Plot the results for the first 2 principal components (PCA1 and PCA2)
+plot(pca_exprs$x[, 1:2],
+     col=my_colors,
+     pch = 19,
+     main = "PCA | Gene Expression Data")
+# Add a legend
+legend(1, 95, legend=c("Control", "tgfB1", "tgfB2"),
+       col=c("magenta", "royalblue", "green3"), pch = 19, cex=0.8)
+```
+
+### UMAP
+
+**Uniform manifold approximation and projection (UMAP)** is a nonlinear dimensionality reduction technique, also used to visualize data variability between replicates.
+
+
+```{r plot_data3, exercise=TRUE, exercise.setup = "plot_data2"}
+
+### UMAP
+# UMAP plot (multi-dimensional scaling)
+exprs_log_umap <- exprs_log[!duplicated(exprs_log), ]  # remove duplicates
+ump <- umap(t(exprs_log_umap), n_neighbors = 4, random_state = 123)
+plot(ump$layout, main="UMAP plot, nbrs=4", xlab="", ylab="", 
+     pch=20, cex=1.5, col=my_colors)
+# Add a legend
+legend("center", legend=c("Control", "tgfB1", "tgfB2"),
+       col=c("magenta", "royalblue", "green3"), pch = 19, cex=0.8)
+
+```
+
+### Density plot
+
+It displays and contrasts the distribution of expression values on different arrays. It can, for example, be used to show the effects of between-array normalization.
+
+```{r plot_data4, exercise=TRUE, exercise.setup = "plot_data3"}
+# Set the canvas parameters for side-by-side ploting (1 row, 2 columns)
+par(mfrow=c(1,2))
+
+# Density before log transformation
+plotDensities(exprs_raw, group = fl, col = my_colors[c(1,4,7)],
+              legend = "topright", main = "Density Before Log2")
+
+# Density after log transformation
+plotDensities(exprs_log, group = fl, col = my_colors[c(1,4,7)],
+              legend = "topright", main = "Density After Log2")
+
+# Reset the canvas parameters for one plot per page
+par(mfrow=c(1,1))
+```
+
+## 4. Explore the results
+
+Now you will visualize the expression level of a gene of your choice.
+
+1. Visit the Reactome pathways browser and choose a pathway of interest (https://reactome.org/PathwayBrowser/)
+2. Select the tab named Molecules and choose Protein or DNA/RNA, and get the gene symbol for the gene that you found to be interesting. 
+
+Change the following code to draw the expression value of the gene you chose.
+
+```{r yfg, exercise=TRUE, exercise.lines=25, exercise.setup = "plot_data4"}
+
+# Get the results for my gene of interest
+my_gene_exprs <- subset(exprs_results_final,
+                        gene_symbol == "NINJ2",
+                        select = GSM989481:GSM989499)
+
+# Print the expression values
+my_gene_exprs
+
+# Convert the expression values to a numeric vector
+my_gene_exprs_num <- as.numeric(my_gene_exprs)
+
+# Make a barplot
+barplot(my_gene_exprs_num, names.arg = colnames(my_gene_exprs), 
+        col = my_colors)
+
+# Make a scatterplot with lines
+plot(my_gene_exprs_num, col = my_colors, 
+     pch = 20, type = "p", xaxt = "n",
+     xlab = "", ylab = "Expression value")
+lines(my_gene_exprs_num, col = "grey", type = "b")
+axis(1, at = 1:9,
+     labels = colnames(my_gene_exprs),
+     las = 2, cex.axis = 0.7)
+```
+
+
+## 4. Quiz
+
+Some self evaluation questions to check if you understood the basics about a transcriptomics analysis.
+
+```{r quiz, }
+quiz(
+  question("What is the purpose of a transcriptomics analysis?",
+    answer("Obtain the sequence of all genes simultaneously."),
+    answer("Visualize and interpret gene evolution."),
+    answer("Measure the expression of all genes simultaneously.", correct = TRUE),
+    answer("Discover new functional interactions between genes."),
+    allow_retry = TRUE
+  ),
+  
+  question("Which of the following are transcriptomics techniques?",
+    answer("Microarrays", correct = TRUE),
+    answer("RT-qPCR"),
+    answer("DNA-seq"),
+    answer("RNA-seq", correct = TRUE),
+    allow_retry = TRUE
+  ),
+  
+  question("Which of the following are NOT advantages of using Next Generation Sequencing techniques?",
+    answer("Measure a limited number of transcripts.", correct = TRUE),
+    answer("Possibility to discover new transcripts."),
+    answer("Fast data analysis.", correct = TRUE),
+    answer("High-throuput measurement of unknown transcripts."),
+    allow_retry = TRUE
+  )
+)
+```
+
+```{r steps, echo=FALSE}
+  # Define the sortable answer options
+steps <- c(
+    "Feature extraction",
+    "Quality control",
+    "Normalization",
+    "Differential expression analysis",
+    "Biological interpretation of the results"
+  )
+# Initialize the question
+question_rank(
+  "Sort the technical steps of a microarray data analysis, from start to end:",
+  answer(steps, correct = TRUE),
+  answer(rev(steps), correct = FALSE, message = "Start to end, not end to start!"),
+  allow_retry = TRUE
+  )
+
+```
+
+
+
+
