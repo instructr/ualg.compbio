@@ -106,6 +106,9 @@ question_text(
   answer("character from starwars", correct = TRUE),
   answer("personagem do starwars", message = "Correto, mas em Inglês."),
   answer("starwars character", correct = TRUE),
+  answer("star wars character", correct = TRUE, message = "Correto, mas starwars não tem espaço."),
+  answer("star wars caracter", correct = TRUE, message = "Correto, mas starwars não tem espaço, e character escreve-se com ch."),
+  answer("starwars caracter", correct = TRUE, message = "Correto, mas character escreve-se com ch."),
   allow_retry = TRUE
 )
 ```
